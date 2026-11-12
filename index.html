@@ -47,7 +47,7 @@ code{font-family:var(--mono);font-size:.9em;background:rgba(56,212,255,.1);borde
 /* logare */
 .login{width:100%;max-width:410px;padding:36px 34px 28px;text-align:center;position:relative}
 .login::before{content:"";position:absolute;inset:-1px;border-radius:21px;padding:1px;background:linear-gradient(140deg,rgba(56,212,255,.7),transparent 35%,transparent 65%,rgba(123,109,255,.7));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
-.login .logo-tile{width:132px;height:150px;margin:-96px auto 18px}
+.login .logo-tile{width:132px;height:150px;margin:-96px auto 18px;position:relative;z-index:2}
 h1{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.02em;margin:0}
 h1 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .sub{color:var(--mut);font-size:13.5px;margin:6px 0 24px}
@@ -547,7 +547,7 @@ def run_task(code, test_json, mode, filename):
 </script>
 <script>
 "use strict";
-const API = "https://script.google.com/macros/s/AKfycbwJxUaG6UaO50YbOi5k967SVlV0nQ6OOWacTcJgHz-AS5SSc1pVKSr8t_Da9vyKApKM/exec";
+const API = "https://script.google.com/macros/s/AKfycbyHuRrUVtrR33mTrmJeV2q0aHv-mSLB0bxg07jpm2lQ2HozpwNg26ZpkyXpuZOwmmMGgw/exec";
 const MONACO = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
 const PYODIDE = "https://cdn.jsdelivr.net/npm/pyodide@314.0.7/";
 const RUN_TIMEOUT = 8000;
@@ -769,6 +769,7 @@ function openLab(m, r) {
   if (S.lab) closeLab();
   const key = "pl_draft_" + r.session;
   const drafts = store.draftGet(key);
+  drafts.__exp = Date.now() + Math.max(0, r.expiresAt - r.serverNow);
   const L = S.lab = { mod: m, session: r.session, tasks: r.tasks, idx: 0, key, drafts, done: drafts.__done || {}, offset: r.serverNow - Date.now(), expiresAt: r.expiresAt, sent: false, models: [] };
   $("lab-mod").textContent = "· " + r.module;
   $("lab-user").textContent = S.user.name;
@@ -998,6 +999,20 @@ $("b-res-back").addEventListener("click", () => { $("ring-c").style.transition =
   window.addEventListener("mouseup", () => { drag = false; document.body.style.cursor = ""; });
 })();
 $("modal").addEventListener("click", e => { if (e.target === $("modal") && !$("modal-box").querySelector(".spin")) closeModal(); });
+
+/* ---------- ciornele expirate se șterg automat ---------- */
+function purgeDrafts() {
+  try {
+    const now = Date.now(), cur = S.lab && !S.lab.sent ? S.lab.key : null;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf("pl_draft_") !== 0 || k === cur) continue;
+      let d = null; try { d = JSON.parse(localStorage.getItem(k)); } catch (e) {}
+      if (!d || !d.__exp || d.__exp < now) localStorage.removeItem(k);
+    }
+  } catch (e) {}
+}
+purgeDrafts(); setInterval(purgeDrafts, 60000);
 
 /* ---------- pornire ---------- */
 document.querySelectorAll("[data-logo]").forEach(i => { i.src = LOGO; });
