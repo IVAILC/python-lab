@@ -412,7 +412,7 @@ def _override(tree, values):
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             name = node.targets[0].id
             if name in left:
-                node.value = ast.copy_location(ast.Constant(left.pop(name)), node.value)
+                node.value = ast.copy_location(ast.parse(repr(left.pop(name)), mode="eval").body, node.value)
     ast.fix_missing_locations(tree)
 
 
@@ -523,7 +523,8 @@ def run_task(code, test_json, mode, filename):
 
         import datetime as _dt, math as _math
         helpers = dict(ns)
-        helpers.update(_exc=_exc, _unittest=_unittest, _uses=_uses, _has=_has, _dt=_dt, _math=_math, _src=code)
+        helpers.update(_exc=_exc, _unittest=_unittest, _uses=_uses, _has=_has, _dt=_dt, _math=_math, _src=code,
+                       _isdir=lambda name: os.path.isdir(name))
 
         for name in rep.get("vars") or []:
             if name.isidentifier():
