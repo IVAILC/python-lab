@@ -84,6 +84,21 @@ tr.det td{background:rgba(4,10,22,.55);padding:14px 18px 18px}
 @media (max-width:900px){.det .two{grid-template-columns:1fr}}
 .det h4{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 6px;font-weight:600}
 .det table{font-size:13px}.det th{cursor:default}.det td,.det th{padding:7px 8px}
+details.tk{border:1px solid var(--line);border-radius:12px;margin-top:8px;background:rgba(4,10,22,.4)}
+details.tk summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;gap:12px;align-items:center}
+details.tk summary::-webkit-details-marker{display:none}
+details.tk summary .id{font-family:var(--mono);font-size:12.5px;color:var(--acc);flex:none;width:58px}
+details.tk summary .df{margin-left:auto;color:var(--mut);font-size:12px;white-space:nowrap}
+details.tk[open]{border-color:var(--line2)}
+details.tk .in{padding:2px 14px 14px;border-top:1px solid var(--line)}
+details.tk h4{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:14px 0 6px;font-weight:600}
+details.tk p{margin:6px 0}details.tk ul{margin:6px 0;padding-left:20px}
+details.tk code{font-family:var(--mono);font-size:.9em;background:rgba(56,212,255,.1);border:1px solid rgba(56,212,255,.18);padding:1px 5px;border-radius:5px;color:#bfeeff}
+pre.code{margin:0;background:#0a0f1a;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.5;overflow:auto;white-space:pre;color:#d4d4d4}
+pre.code.sol{border-color:rgba(61,220,151,.45);background:rgba(61,220,151,.05)}
+.two2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:900px){.two2{grid-template-columns:1fr}}
+.hint{color:var(--mut);font-size:13.5px;padding:8px 0 2px}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:60;background:#101b33;border:1px solid var(--line2);padding:11px 18px;border-radius:12px;font-size:14px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:var(--acc);animation:sp 1s linear infinite;margin:60px auto}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -125,10 +140,21 @@ tr.det td{background:rgba(4,10,22,.55);padding:14px 18px 18px}
         <div class="glass chart"><h3>Rezultate pe module</h3><p>Punctajul mediu și procentul de sesiuni promovate (cel puțin 70%).</p><div class="cv"><canvas id="c-mods"></canvas></div></div>
         <div class="glass chart full"><h3>Activitate în ultimele 14 zile</h3><p>Numărul de sesiuni trimise în fiecare zi.</p><div class="cv" style="height:200px"><canvas id="c-days"></canvas></div></div>
       </div>
+      <div class="glass chart" style="margin-bottom:16px">
+        <h3>Membrii grupei</h3><p id="g-sub">Alegeți o grupă pentru a vedea situația fiecărui student.</p>
+        <div class="charts hidden" id="g-charts" style="margin:0">
+          <div><h3 style="font-size:14px">Numărul de încercări</h3><p>Câte sesiuni a trimis fiecare student.</p><div class="cv"><canvas id="c-att"></canvas></div></div>
+          <div><h3 style="font-size:14px">Media ultimelor 3 teste</h3><p>Punctajul mediu din cele mai recente 3 sesiuni, în procente.</p><div class="cv"><canvas id="c-last3"></canvas></div></div>
+        </div>
+      </div>
       <div class="glass tablebox">
         <div class="thead"><h3 class="sect">Studenți</h3><div class="filters" style="margin:0"><input id="f-search" placeholder="Caută după nume sau utilizator" aria-label="Caută student"></div></div>
         <table id="t-stud"></table>
         <p class="mutd" style="font-size:12.5px;margin:10px 0 0">Clic pe un student pentru detalii pe module și ultimele sesiuni. Comutatorul din coloana Acces oprește sau redă imediat accesul la teste.</p>
+      </div>
+      <div class="glass tablebox" style="margin-top:16px">
+        <div class="thead"><h3 class="sect">Variante corecte</h3><div class="filters" style="margin:0"><select id="k-mod" aria-label="Modulul pentru variante corecte"></select></div></div>
+        <div id="k-list"><p class="hint">Alegeți un modul pentru a vedea toate sarcinile lui, cu rezolvarea corectă și explicația.</p></div>
       </div>
     </div>
   </div>
@@ -185,7 +211,11 @@ async function load() {
   const groups = Array.from(new Set(d.students.map(s => s.group).filter(Boolean))).sort();
   const keepG = $("f-group").value, keepM = $("f-mod").value;
   $("f-group").innerHTML = '<option value="">Toate grupele</option>' + groups.map(g => '<option>' + esc(g) + '</option>').join("");
-  $("f-mod").innerHTML = '<option value="">Toate modulele</option>' + d.modules.map(m => '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>').join("");
+  const mlabel = m => (m.lang === "EN" ? "EN · " : "RO · ") + m.name;
+  $("f-mod").innerHTML = '<option value="">Toate modulele</option>' + d.modules.map(m => '<option value="' + esc(m.id) + '">' + esc(mlabel(m)) + '</option>').join("");
+  const keepK = $("k-mod").value;
+  $("k-mod").innerHTML = '<option value="">Alegeți modulul…</option>' + d.modules.map(m => '<option value="' + esc(m.id) + '">' + esc(mlabel(m)) + " (" + m.total + ")" + '</option>').join("");
+  if (d.modules.some(m => m.id === keepK)) $("k-mod").value = keepK;
   if (groups.includes(keepG)) $("f-group").value = keepG;
   if (d.modules.some(m => m.id === keepM)) $("f-mod").value = keepM;
   $("a-sub").textContent = A.name + " · date actualizate la " + new Date().toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" });
@@ -227,10 +257,23 @@ function render() {
   bar("c-groups", groups, [{ label: "Punctaj mediu (%)", data: groups.map(g => avgPct(gRows(g))), color: "#38d4ff" }], groups.some(g => gRows(g).length));
   // grafic pe module (respectă filtrul de grupă)
   const mRows = id => d.results.filter(r => r.mod === id && (!f.g || r.group === f.g));
-  bar("c-mods", d.modules.map((m, i) => "M" + (i + 1)), [
+  bar("c-mods", d.modules.map(m => m.id), [
     { label: "Punctaj mediu (%)", data: d.modules.map(m => avgPct(mRows(m.id))), color: "#38d4ff" },
     { label: "Sesiuni promovate (%)", data: d.modules.map(m => passPct(mRows(m.id))), color: "#7b6dff" }],
-    d.modules.some(m => mRows(m.id).length), d.modules.map(m => m.name));
+    d.modules.some(m => mRows(m.id).length), d.modules.map(m => (m.lang === "EN" ? "EN · " : "RO · ") + m.name));
+  // membrii grupei: încercări și media ultimelor 3 teste (respectă filtrul de modul)
+  if (f.g) {
+    const mem = f.students.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const rowsOf = u => d.results.filter(r => r.user === u && (!f.m || r.mod === f.m)).sort((a, b) => b.t - a.t);
+    const modName = f.m ? ((d.modules.find(m => m.id === f.m) || {}).name || f.m) : "toate modulele";
+    $("g-sub").textContent = "Grupa " + f.g + " · " + modName + " · " + mem.length + " studenți";
+    $("g-charts").classList.remove("hidden");
+    bar("c-att", mem.map(s => s.name), [{ label: "Încercări", data: mem.map(s => rowsOf(s.user).length), color: "#38d4ff" }], mem.length > 0, null, true);
+    bar("c-last3", mem.map(s => s.name), [{ label: "Media ultimelor 3 teste (%)", data: mem.map(s => avgPct(rowsOf(s.user).slice(0, 3))), color: "#7b6dff" }], mem.some(s => rowsOf(s.user).length));
+  } else {
+    $("g-sub").textContent = "Alegeți o grupă pentru a vedea situația fiecărui student.";
+    $("g-charts").classList.add("hidden");
+  }
   // activitate
   const days = [], counts = [], now = new Date(d.serverNow); now.setHours(0, 0, 0, 0);
   for (let i = 13; i >= 0; i--) { const a = new Date(now); a.setDate(a.getDate() - i); const b = new Date(a); b.setDate(b.getDate() + 1);
@@ -302,6 +345,32 @@ $("t-stud").addEventListener("click", async e => {
   }
   const tr = e.target.closest("tr.st");
   if (tr) { A.open = A.open === tr.dataset.u ? null : tr.dataset.u; renderTable(); }
+});
+
+/* ---------- variante corecte ---------- */
+function rich(text) {
+  const inline = x => esc(x).replace(/`([^`]+)`/g, "<code>$1</code>");
+  let html = "", list = false;
+  String(text || "").split("\n").forEach(line => {
+    if (line.startsWith("- ")) { if (!list) { html += "<ul>"; list = true; } html += "<li>" + inline(line.slice(2)) + "</li>"; return; }
+    if (list) { html += "</ul>"; list = false; }
+    if (line.trim()) html += "<p>" + inline(line) + "</p>";
+  });
+  return html + (list ? "</ul>" : "");
+}
+$("k-mod").addEventListener("change", async () => {
+  const id = $("k-mod").value, box = $("k-list");
+  if (!id) { box.innerHTML = '<p class="hint">Alegeți un modul pentru a vedea toate sarcinile lui, cu rezolvarea corectă și explicația.</p>'; return; }
+  box.innerHTML = '<div class="spin" style="margin:30px auto"></div>';
+  let r;
+  try { r = await api("adminTasks", { token: A.token, module: id }); }
+  catch (e) { if (/expirat/i.test(e.message)) return showLogin(e.message); box.innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; return; }
+  if ($("k-mod").value !== id) return;
+  const dn = { "1": "ușor", "2": "mediu", "3": "greu" };
+  box.innerHTML = '<p class="hint">' + r.tasks.length + ' sarcini. Clic pe o sarcină pentru enunț, codul inițial, rezolvarea corectă și explicație.</p>' +
+    r.tasks.map(t => '<details class="tk"><summary><span class="id">' + esc(t.id) + '</span><b>' + esc(t.title) + '</b><span class="df">' + (dn[t.difficulty] || "") + (t.active ? "" : " · dezactivată") + '</span></summary><div class="in">' +
+      '<h4>Enunț</h4>' + rich(t.text) + '<div class="two2"><div><h4>Codul primit de student</h4><pre class="code">' + esc(t.code) + '</pre></div><div><h4>Rezolvarea corectă</h4><pre class="code sol">' + esc(t.solution) + '</pre></div></div>' +
+      '<h4>Explicație</h4>' + rich(t.explanation) + '</div></details>').join("");
 });
 
 const saved = ss.get("pl_admin");
